@@ -1,10 +1,10 @@
-import flask
-
-app = flask.Flask(__name__)
-
-@app.route('/')
-def home():
-    return "Hello, World!"
+from renderer import Renderer
+from screen import Screen
+from config import Config
+import threading, time
 
 if __name__ == '__main__':
-    app.run()
+    screen = Screen()
+    screen.start()
+    
+    renderer = Renderer(screen)

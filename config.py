@@ -1,11 +1,16 @@
-import flask
+import json
 
-app = flask.Flask(__name__)
+FILENAME = "config.json"
 
-@app.route('/')
-def home():
-    return render_template('setup.html')
+class Config:
+    _config: dict = {}
 
-def start():
-    app.run("0.0.0.0", port=8080)
+    def __init__(self):
+        self.load_config()
+
+    def load_config(self):
+        with open(FILENAME, "r") as file:
+            self._config = json.load(file)
     
+    def get(self, key: str):
+        return self._config.get(key)
