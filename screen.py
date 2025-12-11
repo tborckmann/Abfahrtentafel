@@ -1,41 +1,54 @@
 from flask import Flask, render_template, request
 from config import Config
+from hafas import HafasAPI, Stop
 import threading
 import urllib.request
 
 
-class Screen:
-    app = Flask(__name__)
-    PORT = Config().get("port") or 8080
 
+class Screen:
 
     def __init__(self):
-        self.config = Config()
+        self._config = Config()
         self._thread = None
 
-    @app.route('/')
-    def render_screen():
+        # Initialize Flask app
+        self.app = Flask(__name__)
+        self.app.add_url_rule('/', 'render_screen', self.render_screen)
+        self.app.add_url_rule('/_shutdown', '_shutdown', self._shutdown, methods=['POST'])
+        self.app.add_url_rule('/_update', '_update', self._update, methods=['POST'])
+
+        # Initialize HAFAS API and selected stop
+        self._hafas = HafasAPI()
+        self._selected_stop: Stop = None if not self._config.get("stop_name") else self._hafas.get_stop(self._config.get("stop_name"))
+
+    #@app.route('/')
+    def render_screen(self):
 
         # TODO: Render website for departure board
 
+        if (self._config.get("stop_name") and self._selected_stop):
+            return render_template('screen.html', stop_name=self._selected_stop.name)
         return render_template('no_stop.html')
 
-    @app.route('/_shutdown', methods=['POST'])
-    def _shutdown():
+    #@app.route('/_shutdown', methods=['POST'])
+    def _shutdown(self): 
         func = request.environ.get('werkzeug.server.shutdown')
         if func is None:
             raise RuntimeError('Not running the Werkzeug Server')
         func()
         return 'shutting down'
 
-    def start(self, port: int = None, block: bool = False):
+    def _update(self):
+        self._config.load_config()
+        self._selected_stop = self._hafas.get_stop(self._config.get("stop_name"))
+        return 'updated'
+
+    def start(self, port: int = 8080, block: bool = False):
         if self.is_running():
             return
 
         print("Starting server...")
-
-        if port is None:
-            port = self.PORT
 
         run_kwargs = {'host': '127.0.0.1', 'port': 8080, 'debug': False, 'use_reloader': False}
         self._thread = threading.Thread(target=self.app.run, kwargs=run_kwargs, daemon=True)
@@ -48,13 +61,14 @@ class Screen:
                 self.stop()
 
     def stop(self):
+        
         if not self.is_running():
             return
 
         print("Stopping server...")
 
         try:
-            req = urllib.request.Request(f'http://127.0.0.1:8080/_shutdown', method='POST')
+            req = urllib.request.Request('http://127.0.0.1:8080/_shutdown', method='POST')
             with urllib.request.urlopen(req, timeout=2):
                 pass
         except Exception:
