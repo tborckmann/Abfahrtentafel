@@ -37,7 +37,7 @@ class Screen:
         if port is None:
             port = self.PORT
 
-        run_kwargs = {'host': '127.0.0.1', 'port': port, 'debug': False, 'use_reloader': False}
+        run_kwargs = {'host': '127.0.0.1', 'port': 8080, 'debug': False, 'use_reloader': False}
         self._thread = threading.Thread(target=self.app.run, kwargs=run_kwargs, daemon=True)
         self._thread.start()
 
@@ -54,7 +54,7 @@ class Screen:
         print("Stopping server...")
 
         try:
-            req = urllib.request.Request(f'http://127.0.0.1:{self.PORT}/_shutdown', method='POST')
+            req = urllib.request.Request(f'http://127.0.0.1:8080/_shutdown', method='POST')
             with urllib.request.urlopen(req, timeout=2):
                 pass
         except Exception:

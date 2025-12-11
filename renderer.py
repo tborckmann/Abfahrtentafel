@@ -9,11 +9,15 @@ class Renderer:
     screen: Screen = None
 
     def __init__(self, screen: Screen = Screen()):
+
         self.screen = screen
+        if not screen.is_running():
+            screen.start()
+
         self._thread = None
 
         options = Options()
-        #options.add_argument('--headless')
+        options.add_argument('--headless')
         options.add_argument('--window-size=800,480')
 
         self.driver = webdriver.Chrome(options=options)
@@ -25,7 +29,7 @@ class Renderer:
         
         print("Starting renderer...")
 
-        self._thread = threading.Thread(target=self.render, args=(f"http://localhost:{self.screen.PORT}/",))
+        self._thread = threading.Thread(target=self.render, args=(f"http://localhost:8080/",))
         self._thread.start()
 
     def stop(self):
