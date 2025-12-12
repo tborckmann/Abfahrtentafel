@@ -8,6 +8,7 @@ import urllib.request
 
 class Screen:
 
+
     def __init__(self):
         self._config = Config()
         self._thread = None
@@ -22,7 +23,7 @@ class Screen:
         self._hafas = HafasAPI()
         self._selected_stop: Stop = None if not self._config.get("stop_name") else self._hafas.get_stop(self._config.get("stop_name"))
 
-    #@app.route('/')
+
     def render_screen(self):
 
         # TODO: Render website for departure board
@@ -31,7 +32,7 @@ class Screen:
             return render_template('screen.html', stop_name=self._selected_stop.name)
         return render_template('no_stop.html')
 
-    #@app.route('/_shutdown', methods=['POST'])
+
     def _shutdown(self): 
         func = request.environ.get('werkzeug.server.shutdown')
         if func is None:
@@ -39,10 +40,12 @@ class Screen:
         func()
         return 'shutting down'
 
+
     def _update(self):
         self._config.load_config()
         self._selected_stop = self._hafas.get_stop(self._config.get("stop_name"))
         return 'updated'
+
 
     def start(self, port: int = 8080, block: bool = False):
         if self.is_running():
@@ -59,6 +62,7 @@ class Screen:
                 self._thread.join()
             except KeyboardInterrupt:
                 self.stop()
+
 
     def stop(self):
         
