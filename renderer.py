@@ -8,7 +8,7 @@ class Renderer:
     driver: webdriver = None
     screen: Screen = None
 
-    def __init__(self, screen: Screen = Screen()):
+    def __init__(self, screen: Screen = Screen(), headless: bool = True):
 
         self.screen = screen
         if not screen.is_running():
@@ -17,7 +17,7 @@ class Renderer:
         self._thread = None
 
         options = Options()
-        options.add_argument('--headless')
+        if headless: options.add_argument('--headless')
         options.add_argument('--window-size=800,480')
 
         self.driver = webdriver.Chrome(options=options)
@@ -54,11 +54,12 @@ class Renderer:
         print(f"Opened {url}")
 
         while True:
-            time.sleep(5)
+            time.sleep(30)
 
             try:
                 req = urllib.request.Request(url)
                 urllib.request.urlopen(req, timeout=2)
+            
             except Exception as e:
                 print("Web server not running, stopping renderer...")
                 self.stop()
@@ -69,10 +70,11 @@ class Renderer:
             print("Screenshot saved")
 
 
+
 if __name__ == '__main__':
     screen = Screen()
     screen.start()
 
-    renderer = Renderer(screen)
+    renderer = Renderer(screen, False)
 
     

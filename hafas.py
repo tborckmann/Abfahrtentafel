@@ -15,10 +15,11 @@ class Stop:
 
 
 class Departure:
+    line_nr: str
     line_name: str
-    direction: str
+    line_type: str
+    destination: str
     departure_time: str
-    platform: str
 
 
 class HafasAPI:
@@ -70,6 +71,7 @@ class HafasAPI:
 
 
     def get_stop(self, search: str) -> Stop:
+
         if not search or len(search) < 2:
             return None
 
@@ -80,7 +82,7 @@ class HafasAPI:
         self.selected_stop = stop
 
 
-    def get_departures(self) -> list[Departure]:
+    def get_departures(self, amount: int = 5) -> list[Departure]:
         
         if not self.selected_stop:
             return []
@@ -111,14 +113,15 @@ class HafasAPI:
             			"name": self.selected_stop.name,
             			"lid": self.selected_stop.lid,
             			"extId": self.selected_stop.extid,
-            			"eteId": f"sq|{self.selected_stop.stop_type}|{self.selected_stop.name}|{self.selected_stop.extid}|{self.selected_stop.lat}|{self.selected_stop.lon}",   #"sq|S|Jena, Zeiss-Werk|153045|11570052|50915639"
+            			"eteId": f"sq|{self.selected_stop.stop_type}|{self.selected_stop.name}|{self.selected_stop.extid}|{self.selected_stop.lat}|{self.selected_stop.lon}",   # bsp: "sq|S|Jena, Zeiss-Werk|153045|11570052|50915639"
             			},
             		"type":"DEP",
             		"sort":"PT",
-            		"maxJny":40
+            		"maxJny":amount # Anzahl der Abfahrten
             		},
             	"meth":"StationBoard",
-            	"id":"1|4|"}]
+            	"id":"1|4|"
+            }]
         }
 
         response = requests.post(self.endpoint_url, json=payload)
@@ -126,10 +129,32 @@ class HafasAPI:
 
         with open("./Responses/Abfahrten Response.json", "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
+
+        lines = data["svcResL"][0]["res"]["common"]["prodL"]
+        print(lines)
+        journeys = data["svcResL"][0]["res"]["jnyL"]
+        print(journeys)
+
+        departures: list[Departure] = []
+        for i in range(amount):
+            dep = Departure()
+            
+            dep.line_name = lines[i]["name"]
+            dep.line_nr = lines[i]["number"]
+            dep.line_type = lines[i]["cls"]
+            dep.destination = journeys[i]["dirTxt"]
+            dep.departure_time = (journeys[i]["stbStop"]["dTimeS"])[2:6]
+
+            departures.append(dep)
+        
+        return departures
+
         
 
 if __name__ == '__main__':
     hafas = HafasAPI()
-    res = hafas.get_stop("Jena, Hermann-Löns-Straße")
+    res = hafas.get_stop("Jena, Stadtzentrum Löbdergraben")
     hafas.set_selected_stop(res)
-    hafas.get_departures()
+    deps = hafas.get_departures(5)
+    for dep in deps:
+        print(f"Linie {dep.line_nr} nach {dep.destination} um {dep.departure_time}")
