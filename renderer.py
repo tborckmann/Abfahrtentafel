@@ -1,12 +1,15 @@
 import selenium.webdriver as webdriver
 from selenium.webdriver.chrome.options import Options
 from screen import Screen
+from config import Config
 import time, threading, urllib.request
 
 class Renderer:
 
     driver: webdriver = None
     screen: Screen = None
+
+    
 
     def __init__(self, screen: Screen = Screen(), headless: bool = True):
 
@@ -15,6 +18,9 @@ class Renderer:
             screen.start()
 
         self._thread = None
+
+        self._config = Config()
+        self.REFRESH_INTERVAL = self._config.get("refresh_interval")
 
         options = Options()
         if headless: options.add_argument('--headless')
@@ -54,7 +60,7 @@ class Renderer:
         print(f"Opened {url}")
 
         while True:
-            time.sleep(30)
+            time.sleep(self.REFRESH_INTERVAL)
 
             try:
                 req = urllib.request.Request(url)
@@ -65,8 +71,13 @@ class Renderer:
                 self.stop()
                 return
 
-            self.driver.refresh()
-            self.driver.save_screenshot("screenshot.png")
+            try:
+                self.driver.refresh()
+                self.driver.save_screenshot("screenshot.png")
+            except Exception as e:
+                print("Browser closed, stopping renderer...")
+                self.stop()
+                return
             print("Screenshot saved")
 
 

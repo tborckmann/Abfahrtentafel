@@ -22,15 +22,17 @@ class Screen:
         # Initialize HAFAS API and selected stop
         self._hafas = HafasAPI()
         self._selected_stop: Stop = None if not self._config.get("stop_name") else self._hafas.get_stop(self._config.get("stop_name"))
+        if self._selected_stop:
+            self._hafas.set_selected_stop(self._selected_stop)
 
 
     def render_screen(self):
 
-        # TODO: Render website for departure board
-
-        if (self._config.get("stop_name") and self._selected_stop):
-            return render_template('screen.html', stop_name=self._selected_stop.name)
-        return render_template('no_stop.html')
+        if not ((self._config.get("stop_name") and self._selected_stop)):
+            return render_template('no_stop.html')
+        
+        departures = self._hafas.get_departures(self._config.get("max_departures"))
+        return render_template('screen.html', stop=self._selected_stop, departures=departures)
 
 
     def _shutdown(self): 

@@ -1,5 +1,6 @@
 import requests, json
 from config import Config
+from datetime import datetime
 
 
 class Stop:
@@ -19,7 +20,7 @@ class Departure:
     line_name: str
     line_type: str
     destination: str
-    departure_time: str
+    departure_time: datetime.time
 
 
 class HafasAPI:
@@ -78,11 +79,11 @@ class HafasAPI:
         return self.get_suggestions(search)[0]
 
 
-    def set_selected_stop(self, stop: Stop):
+    def set_selected_stop(self, stop: Stop) -> None:
         self.selected_stop = stop
 
 
-    def get_departures(self, amount: int = 5) -> list[Departure]:
+    def get_departures(self,  amount: int = 5) -> list[Departure]:
         
         if not self.selected_stop:
             return []
@@ -127,23 +128,22 @@ class HafasAPI:
         response = requests.post(self.endpoint_url, json=payload)
         data = response.json()
 
-        with open("./Responses/Abfahrten Response.json", "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
+        #with open("./Responses/Abfahrten Response.json", "w", encoding="utf-8") as f:
+        #    json.dump(data, f, ensure_ascii=False, indent=4)
 
         lines = data["svcResL"][0]["res"]["common"]["prodL"]
-        print(lines)
         journeys = data["svcResL"][0]["res"]["jnyL"]
-        print(journeys)
 
         departures: list[Departure] = []
         for i in range(amount):
             dep = Departure()
-            
+
             dep.line_name = lines[i]["name"]
             dep.line_nr = lines[i]["number"]
             dep.line_type = lines[i]["cls"]
             dep.destination = journeys[i]["dirTxt"]
-            dep.departure_time = (journeys[i]["stbStop"]["dTimeS"])[2:6]
+            #print(journeys[i]["stbStop"]["dTimeS"][:4])
+            dep.departure_time = datetime.strptime((journeys[i]["stbStop"]["dTimeS"][:4]), "%H%M").time()
 
             departures.append(dep)
         
@@ -157,4 +157,4 @@ if __name__ == '__main__':
     hafas.set_selected_stop(res)
     deps = hafas.get_departures(5)
     for dep in deps:
-        print(f"Linie {dep.line_nr} nach {dep.destination} um {dep.departure_time}")
+        print(f"Linie {dep.line_nr} nach {dep.destination} um {dep.departure_time.strftime('%H:%M')}")
