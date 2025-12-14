@@ -2,6 +2,7 @@ import selenium.webdriver as webdriver
 from selenium.webdriver.chrome.options import Options
 from screen import Screen
 from config import Config
+from shared import shutdown_event
 import time, threading, urllib.request
 
 class Renderer:
@@ -27,7 +28,6 @@ class Renderer:
         options.add_argument('--window-size=800,480')
 
         self.driver = webdriver.Chrome(options=options)
-        self.start()
     
     def start(self):
         if self.is_running():
@@ -45,11 +45,16 @@ class Renderer:
 
         print("Stopping renderer...")
 
-        self.driver.quit()
-        self.screen.stop()
+        try:
+            self.driver.quit()
+        except Exception:
+            pass
 
-        if self._thread:
-            self._thread.join(timeout=2)
+        if self.screen.is_running(): 
+            self.screen.stop()
+
+        if self._thread is not threading.current_thread():
+            self._thread.join()
             self._thread = None
 
     def is_running(self) -> bool:
@@ -60,25 +65,30 @@ class Renderer:
         print(f"Opened {url}")
 
         while True:
-            time.sleep(self.REFRESH_INTERVAL)
+
+            if shutdown_event.is_set():
+                self.stop()
+                return
 
             try:
                 req = urllib.request.Request(url)
                 urllib.request.urlopen(req, timeout=2)
-            
             except Exception as e:
                 print("Web server not running, stopping renderer...")
-                self.stop()
-                return
+                shutdown_event.set()
+                continue
 
             try:
                 self.driver.refresh()
                 self.driver.save_screenshot("screenshot.png")
+                print("Screenshot saved")
             except Exception as e:
                 print("Browser closed, stopping renderer...")
-                self.stop()
-                return
-            print("Screenshot saved")
+                shutdown_event.set()
+                continue
+            
+
+            shutdown_event.wait(self.REFRESH_INTERVAL)
 
 
 
@@ -87,5 +97,15 @@ if __name__ == '__main__':
     screen.start()
 
     renderer = Renderer(screen, False)
+    renderer.start()
 
+    try:
+        while not shutdown_event.is_set():
+            time.sleep(0.5)
+        
+        if shutdown_event.is_set():
+            renderer.stop()
+            screen.stop()
+    except KeyboardInterrupt:
+        shutdown_event.set()
     

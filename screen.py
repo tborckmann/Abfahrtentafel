@@ -32,7 +32,7 @@ class Screen:
             return render_template('no_stop.html')
         
         departures = self._hafas.get_departures(self._config.get("max_departures"))
-        return render_template('screen.html', stop=self._selected_stop, departures=departures)
+        return render_template('screen.html', stop_name=self._selected_stop.name, departures=departures)
 
 
     def _shutdown(self): 
@@ -40,6 +40,8 @@ class Screen:
         if func is None:
             raise RuntimeError('Not running the Werkzeug Server')
         func()
+
+        
         return 'shutting down'
 
 
@@ -81,7 +83,7 @@ class Screen:
             # ignore any error during shutdown request
             pass
 
-        if self._thread:
+        if self._thread is not threading.current_thread:
             self._thread.join(timeout=2)
             self._thread = None
 
