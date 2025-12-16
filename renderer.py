@@ -12,19 +12,19 @@ class Renderer:
 
     
 
-    def __init__(self, screen: Screen = Screen(), headless: bool = True):
+    def __init__(self, screen: Screen = Screen(), debug: bool = True):
+        self._thread = None
+        self._config = Config()
+        self.debug = debug
+        self.REFRESH_INTERVAL = self._config.get("refresh_interval")
 
         self.screen = screen
         if not screen.is_running():
             screen.start()
 
-        self._thread = None
-
-        self._config = Config()
-        self.REFRESH_INTERVAL = self._config.get("refresh_interval")
-
         options = Options()
-        if headless: options.add_argument('--headless')
+        if not debug: 
+            options.add_argument('--headless')
         options.add_argument('--window-size=800,480')
 
         self.driver = webdriver.Chrome(options=options)
@@ -80,7 +80,7 @@ class Renderer:
 
             try:
                 self.driver.refresh()
-                self.driver.save_screenshot("screenshot.png")
+                if not self.debug: self.driver.save_screenshot("screenshot.png")
                 print("Screenshot saved")
             except Exception as e:
                 print("Browser closed, stopping renderer...")
@@ -88,7 +88,7 @@ class Renderer:
                 continue
             
 
-            shutdown_event.wait(self.REFRESH_INTERVAL)
+            shutdown_event.wait(10 if self.debug else self.REFRESH_INTERVAL)
 
 
 
@@ -96,7 +96,7 @@ if __name__ == '__main__':
     screen = Screen()
     screen.start()
 
-    renderer = Renderer(screen, False)
+    renderer = Renderer(screen, True)
     renderer.start()
 
     try:

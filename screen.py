@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request
 from config import Config
 from hafas import HafasAPI, Stop
-from shared import ConnectionError, RequestException
+from shared import ConnectionError, RequestException, ConfigError
 import threading
 import urllib.request
 
@@ -13,40 +13,56 @@ class Screen:
     def __init__(self):
         self._config = Config()
         self._thread = None
+        self._selected_stop: Stop = None
 
         # Initialize Flask app
         self.app = Flask(__name__)
         self.app.add_url_rule('/', 'render_screen', self.render_screen)
         self.app.add_url_rule('/_shutdown', '_shutdown', self._shutdown, methods=['POST'])
-        self.app.add_url_rule('/_update', '_update', self._update, methods=['POST'])
+        self.app.add_url_rule('/_update', '_fetch_stop', self._fetch_stop, methods=['POST'])
 
-        # Initialize HAFAS API and selected stop
+        
         self._hafas = HafasAPI()
-        self._selected_stop: Stop = None if not self._config.get("stop_name") else self._hafas.get_stop(self._config.get("stop_name"))
-        if self._selected_stop:
-            self._hafas.set_selected_stop(self._selected_stop)
+        try:
+            self.fetch_stop()   # Ignore Exceptions on first fetch
+        except:
+            print("Couldnt fetch stop on init")
 
+
+    def _fetch_stop(self):
+
+        self._config.load_config()
+        if not self._config.get("stop_name"):
+            raise ConfigError("stop_name", None)
+        
+        self._selected_stop = self._hafas.get_stop(self._config.get("stop_name"))
+        self._hafas.set_selected_stop(self._selected_stop)
+        return "updated"
 
     def render_screen(self):
-
-        if not ((self._config.get("stop_name") and self._selected_stop)):
-            return render_template("error.html", error="NO STOP NAME SPECIFIED", msg="Edit config to select a stop")
         
         try:
+            if not self._selected_stop:
+                self._fetch_stop()
+            
             departures = self._hafas.get_departures(self._config.get("max_departures"))
+            return render_template("screen.html", stop_name=self._selected_stop.display_name, departures=departures)
+        except ConfigError as confe:
+            print("Stop not specified" + str(confe.message))
+            return render_template("error.html", error="No Stop specified", msg="Edit config to select a stop and send update request")
         except ConnectionError as ce:
-            return render_template("error.html", error="No Connection", ctx = "Try connecting to the internet")
+            print("Not connected: " + str(ce.message))
+            return render_template("error.html", error="No Connection", msg = "Try connecting to the internet")
         except RequestException as re:
             match re.status_code:
-                case 404:
-                    return render_template("error.html", error="Request error: Wrong URL", ctx="API could not be found (Error 404)")
                 case 403:
-                    return render_template("error.html", error="Request error: Access forbidden", ctx="Access was not permitted (Error 403)")
+                    return render_template("error.html", error="Request error: Access forbidden", msg="Access was not permitted (Error 403)")
+                case 404:
+                    return render_template("error.html", error="Request error: Wrong URL", msg="API could not be found (Error 404)")
                 case 429:
-                    return render_template("error.html", error="Request error: Ratelimited", ctx="Too many requests were sent (Error 429)")
+                    return render_template("error.html", error="Request error: Rate limited", msg="Too many requests were sent (Error 429)")
                 case _:
-                    return render_template("error.html", error="Request error", ctx="There was an error")
-        return render_template("screen.html", stop_name=self._selected_stop.display_name, departures=departures)
+                    return render_template("error.html", error="Request error", msg=f"There was an error (Error {re.status_code})")
 
 
     def _shutdown(self): 
@@ -55,14 +71,7 @@ class Screen:
             raise RuntimeError('Not running the Werkzeug Server')
         func()
 
-        
         return 'shutting down'
-
-
-    def _update(self):
-        self._config.load_config()
-        self._selected_stop = self._hafas.get_stop(self._config.get("stop_name"))
-        return 'updated'
 
 
     def start(self, port: int = 8080, block: bool = False):

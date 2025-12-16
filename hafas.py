@@ -30,7 +30,7 @@ class HafasAPI:
 
     selected_stop: Stop
     
-    endpoint_url: str = "https://vmt.eks-prod-euc1.hafas.cloud/bin/mgaate.exe"#?rnd=1762548971124"
+    endpoint_url: str = "https://vmt.eks-prod-euc1.hafas.cloud/bin/mgate.exe"#?rnd=1762548971124"
 
 
     def __init__(self):
@@ -54,10 +54,11 @@ class HafasAPI:
 
         try:
             response = requests.post(self.endpoint_url, json=payload)
-            if not response.ok:
-                raise RequestException(response.status_code)
         except Exception as e:
-            raise ConnectionError(e.args)
+            raise ConnectionError(message=e.args)
+        
+        if not response.ok:
+            raise RequestException(status_code=response.status_code, message="Response not ok")
         
         data = response.json()
         suggestions = data["svcResL"][0]["res"]["match"]["locL"]
@@ -110,10 +111,18 @@ class HafasAPI:
             "auth": {"type":"AID", "aid":"web-vmt-qdr6c6y8s4cvfmfw"},
             "client": {"id":"VMT", "type":"WEB", "name":"webapp", "l":"vs_vmt", "v":10010},
             "formatted":False,
-            "svcReqL":[{"req":{"jnyFltrL":[{"type":"PROD", "mode":"INC", "value":296}], "stbLoc": {"name": self.selected_stop.full_name, "lid": self.selected_stop.lid, "extId": self.selected_stop.extid, "eteId": f"sq|{self.selected_stop.stop_type}|{self.selected_stop.full_namename}|{self.selected_stop.extid}|{self.selected_stop.lat}|{self.selected_stop.lon}"}, "type":"DEP", "sort":"PT", "maxJny":amount}, "meth":"StationBoard", "id":"1|4|"}]
+            "svcReqL":[{"req":{"jnyFltrL":[{"type":"PROD", "mode":"INC", "value":296}], "stbLoc": {"name": self.selected_stop.full_name, "lid": self.selected_stop.lid, "extId": self.selected_stop.extid, "eteId": f"sq|{self.selected_stop.stop_type}|{self.selected_stop.full_name}|{self.selected_stop.extid}|{self.selected_stop.lat}|{self.selected_stop.lon}"}, "type":"DEP", "sort":"PT", "maxJny":amount}, "meth":"StationBoard", "id":"1|4|"}]
         }
 
-        response = requests.post(self.endpoint_url, json=payload)
+        try:
+            response = requests.post(self.endpoint_url, json=payload)
+        except Exception as e:
+            print(e.__traceback__)
+            raise ConnectionError(e.args)
+        
+        if not response.ok:
+            raise RequestException(response.status_code)
+        
         data = response.json()
 
         lines = data["svcResL"][0]["res"]["common"]["prodL"]
@@ -138,7 +147,7 @@ class HafasAPI:
 if __name__ == '__main__':
     hafas = HafasAPI()
 
-    res = hafas.get_suggestions("Bürgel")
+    res = hafas.get_suggestions("Zeiss-Werk")
 
     for r in res:
         print(r.full_name)
