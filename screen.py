@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request
 from config import Config
 from hafas import HafasAPI, Stop
+from shared import ConnectionError, RequestException
 import threading
 import urllib.request
 
@@ -29,10 +30,23 @@ class Screen:
     def render_screen(self):
 
         if not ((self._config.get("stop_name") and self._selected_stop)):
-            return render_template('no_stop.html')
+            return render_template("error.html", error="NO STOP NAME SPECIFIED", msg="Edit config to select a stop")
         
-        departures = self._hafas.get_departures(self._config.get("max_departures"))
-        return render_template('screen.html', stop_name=self._selected_stop.name, departures=departures)
+        try:
+            departures = self._hafas.get_departures(self._config.get("max_departures"))
+        except ConnectionError as ce:
+            return render_template("error.html", error="No Connection", ctx = "Try connecting to the internet")
+        except RequestException as re:
+            match re.status_code:
+                case 404:
+                    return render_template("error.html", error="Request error: Wrong URL", ctx="API could not be found (Error 404)")
+                case 403:
+                    return render_template("error.html", error="Request error: Access forbidden", ctx="Access was not permitted (Error 403)")
+                case 429:
+                    return render_template("error.html", error="Request error: Ratelimited", ctx="Too many requests were sent (Error 429)")
+                case _:
+                    return render_template("error.html", error="Request error", ctx="There was an error")
+        return render_template("screen.html", stop_name=self._selected_stop.display_name, departures=departures)
 
 
     def _shutdown(self): 

@@ -1,12 +1,15 @@
 import requests, json
 from config import Config
 from datetime import datetime
+from shared import ConnectionError, RequestException
 
 
 class Stop:
     lid: str
     extid: str
-    name: str
+    full_name: str
+    display_name: str
+    locality: str
     lat: float
     lon: float
     pCls: int
@@ -26,15 +29,15 @@ class Departure:
 class HafasAPI:
 
     selected_stop: Stop
-    # HAFAS VMT endpoint URL
-    endpoint_url: str = "https://vmt.eks-prod-euc1.hafas.cloud/bin/mgate.exe"#?rnd=1762548971124"
+    
+    endpoint_url: str = "https://vmt.eks-prod-euc1.hafas.cloud/bin/mgaate.exe"#?rnd=1762548971124"
 
 
     def __init__(self):
         self._config = Config
 
 
-    def get_suggestions(self, search: str) -> list[Stop]:
+    def get_suggestions(self, search: str, amount: int = 7) -> list[Stop]:
 
         if not search or len(search) < 2:
             return []
@@ -46,10 +49,16 @@ class HafasAPI:
             "auth": {"type": "AID", "aid": "web-vmt-qdr6c6y8s4cvfmfw"},
             "client": {"id": "VMT", "type": "WEB", "name": "webapp", "l": "vs_vmt", "v": 10010},
             "formatted": False,
-            "svcReqL": [{"req": {"input": {"field": "S", "loc": {"type": "S", "dist": 1000, "name": search}, "maxLoc": 7}}, "meth": "LocMatch", "id": "1|1|"}]
+            "svcReqL": [{"req": {"input": {"field": "S", "loc": {"type": "S", "dist": 1000, "name": search}, "maxLoc": amount}}, "meth": "LocMatch", "id": "1|1|"}]
         }
 
-        response = requests.post(self.endpoint_url, json=payload)
+        try:
+            response = requests.post(self.endpoint_url, json=payload)
+            if not response.ok:
+                raise RequestException(response.status_code)
+        except Exception as e:
+            raise ConnectionError(e.args)
+        
         data = response.json()
         suggestions = data["svcResL"][0]["res"]["match"]["locL"]
 
@@ -59,7 +68,9 @@ class HafasAPI:
             stop = Stop()
             stop.lid=suggestion.get("lid", "")
             stop.extid=suggestion.get("extId", "")
-            stop.name=suggestion.get("name", "")
+            stop.full_name=suggestion.get("name", "")
+            stop.locality = self._get_locality(stop.full_name)
+            stop.display_name = stop.full_name
             stop.lat=suggestion["crd"].get("x", 0)
             stop.lon=suggestion["crd"].get("y", 0)
             stop.pCls=suggestion.get("pCls", 0)
@@ -69,6 +80,10 @@ class HafasAPI:
             
             stops.append(stop)
         return stops
+    
+
+    def _get_locality(self, full_stop_name: str):
+        return full_stop_name.split(", ")[0] if ", " in full_stop_name else None
 
 
     def get_stop(self, search: str) -> Stop:
@@ -92,44 +107,14 @@ class HafasAPI:
             "id":"2egwnxwx4q8hhwcs",
             "ver":"1.78",
             "lang":"deu",
-            "auth": {
-            	"type":"AID",
-            	"aid":"web-vmt-qdr6c6y8s4cvfmfw"},
-
-            "client": {
-            	"id":"VMT",
-            	"type":"WEB",
-            	"name":"webapp",
-            	"l":"vs_vmt",
-            	"v":10010},
-
+            "auth": {"type":"AID", "aid":"web-vmt-qdr6c6y8s4cvfmfw"},
+            "client": {"id":"VMT", "type":"WEB", "name":"webapp", "l":"vs_vmt", "v":10010},
             "formatted":False,
-            "svcReqL":[{
-            	"req":{
-            		"jnyFltrL":[{
-            			"type":"PROD",
-            			"mode":"INC",
-            			"value":296}],
-            		"stbLoc": {
-            			"name": self.selected_stop.name,
-            			"lid": self.selected_stop.lid,
-            			"extId": self.selected_stop.extid,
-            			"eteId": f"sq|{self.selected_stop.stop_type}|{self.selected_stop.name}|{self.selected_stop.extid}|{self.selected_stop.lat}|{self.selected_stop.lon}",   # bsp: "sq|S|Jena, Zeiss-Werk|153045|11570052|50915639"
-            			},
-            		"type":"DEP",
-            		"sort":"PT",
-            		"maxJny":amount # Anzahl der Abfahrten
-            		},
-            	"meth":"StationBoard",
-            	"id":"1|4|"
-            }]
+            "svcReqL":[{"req":{"jnyFltrL":[{"type":"PROD", "mode":"INC", "value":296}], "stbLoc": {"name": self.selected_stop.full_name, "lid": self.selected_stop.lid, "extId": self.selected_stop.extid, "eteId": f"sq|{self.selected_stop.stop_type}|{self.selected_stop.full_namename}|{self.selected_stop.extid}|{self.selected_stop.lat}|{self.selected_stop.lon}"}, "type":"DEP", "sort":"PT", "maxJny":amount}, "meth":"StationBoard", "id":"1|4|"}]
         }
 
         response = requests.post(self.endpoint_url, json=payload)
         data = response.json()
-
-        #with open("./Responses/Abfahrten Response.json", "w", encoding="utf-8") as f:
-        #    json.dump(data, f, ensure_ascii=False, indent=4)
 
         lines = data["svcResL"][0]["res"]["common"]["prodL"]
         journeys = data["svcResL"][0]["res"]["jnyL"]
@@ -142,7 +127,6 @@ class HafasAPI:
             dep.line_nr = lines[i]["number"]
             dep.line_type = lines[i]["cls"]
             dep.destination = journeys[i]["dirTxt"]
-            #print(journeys[i]["stbStop"]["dTimeS"][:4])
             dep.departure_time = datetime.strptime((journeys[i]["stbStop"]["dTimeS"][:4]), "%H%M").time()
 
             departures.append(dep)
@@ -153,8 +137,11 @@ class HafasAPI:
 
 if __name__ == '__main__':
     hafas = HafasAPI()
-    res = hafas.get_stop("Jena, Stadtzentrum Löbdergraben")
-    hafas.set_selected_stop(res)
-    deps = hafas.get_departures(5)
-    for dep in deps:
-        print(f"Linie {dep.line_nr} nach {dep.destination} um {dep.departure_time.strftime('%H:%M')}")
+
+    res = hafas.get_suggestions("Bürgel")
+
+    for r in res:
+        print(r.full_name)
+        print(r.pCls)
+        print(r.is_main_mast)
+        print(r.is_meta_station)
