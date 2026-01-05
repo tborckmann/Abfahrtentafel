@@ -29,6 +29,7 @@ class Departure:
 class HafasAPI:
 
     selected_stop: Stop
+    cache: list[Departure] = []
     
     endpoint_url: str = "https://vmt.eks-prod-euc1.hafas.cloud/bin/mgate.exe"#?rnd=1762548971124"
 
@@ -101,8 +102,24 @@ class HafasAPI:
 
     def get_departures(self,  amount: int = 5) -> list[Departure]:
         
+        #? Optimization: implement dynamic requesting & caching (only when neccessary: time now > time of first departure)
+        #? Optimization: batch-requesting?
+        
         if not self.selected_stop:
             return []
+
+        if not self.cache or len(self.cache) < amount:
+            self.cache = self.request_departures(amount)
+
+        return self.cache
+
+    def request_departures(self, amount: int = 5):
+
+        if amount == 0:
+            return []
+        elif amount < 0:
+            raise ValueError("Amount of departures must be positive")
+
 
         payload = {
             "id":"2egwnxwx4q8hhwcs",
@@ -142,7 +159,7 @@ class HafasAPI:
         
         return departures
 
-        
+
 
 if __name__ == '__main__':
     hafas = HafasAPI()

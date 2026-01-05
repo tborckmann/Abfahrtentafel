@@ -4,6 +4,8 @@ from config import Config
 from shared import shutdown_event
 import threading, time, sys
 
+# TODO: implement proper logging
+
 if __name__ == '__main__':
 
     screen = Screen()
@@ -25,6 +27,3 @@ if __name__ == '__main__':
         renderer.stop()
         
         print("Main thread shutting down...")
-
-        # Optional: allow renderer cleanup time
-        time.sleep(0.5)

@@ -39,33 +39,44 @@ class Screen:
         self._hafas.set_selected_stop(self._selected_stop)
         return "updated"
 
+
     def render_screen(self):
-        
         try:
+
             if not self._selected_stop:
                 self._fetch_stop()
             
             departures = self._hafas.get_departures(self._config.get("max_departures"))
+            #TODO improve display site
             return render_template("screen.html", stop_name=self._selected_stop.display_name, departures=departures)
+
         except ConfigError as confe:
             print("Stop not specified" + str(confe.message))
             return render_template("error.html", error="No Stop specified", msg="Edit config to select a stop and send update request")
+
+        except ValueError as ve:
+            print("Value error: " + str(ve))
+            return render_template("error.html", error="Value error in config", msg=str(ve))
+
         except ConnectionError as ce:
             print("Not connected: " + str(ce.message))
             return render_template("error.html", error="No Connection", msg = "Try connecting to the internet")
+
         except RequestException as re:
             match re.status_code:
                 case 403:
-                    return render_template("error.html", error="Request error: Access forbidden", msg="Access was not permitted (Error 403)")
+                    return render_template("error.html", error="Request error: Access forbidden", msg="Access to the API was not permitted (Error 403)")
                 case 404:
-                    return render_template("error.html", error="Request error: Wrong URL", msg="API could not be found (Error 404)")
+                    return render_template("error.html", error="Request error: Wrong URL", msg="API endpoint could not be found (Error 404)")
                 case 429:
                     return render_template("error.html", error="Request error: Rate limited", msg="Too many requests were sent (Error 429)")
                 case _:
-                    return render_template("error.html", error="Request error", msg=f"There was an error (Error {re.status_code})")
+                    return render_template("error.html", error=f"Request error: {re.message}", msg=f"There was an error (Error {re.status_code})")
 
 
-    def _shutdown(self): 
+    def _shutdown(self):
+        #? improve shutdown function
+
         func = request.environ.get('werkzeug.server.shutdown')
         if func is None:
             raise RuntimeError('Not running the Werkzeug Server')

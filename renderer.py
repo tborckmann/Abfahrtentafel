@@ -11,7 +11,6 @@ class Renderer:
     screen: Screen = None
 
     
-
     def __init__(self, screen: Screen = Screen(), debug: bool = True):
         self._thread = None
         self._config = Config()
@@ -80,14 +79,14 @@ class Renderer:
 
             try:
                 self.driver.refresh()
-                if not self.debug: self.driver.save_screenshot("screenshot.png")
-                print("Screenshot saved")
+                if not self.debug: 
+                    self.driver.save_screenshot("screenshot.png")
+                    print("Screenshot saved")
             except Exception as e:
                 print("Browser closed, stopping renderer...")
                 shutdown_event.set()
                 continue
             
-
             shutdown_event.wait(10 if self.debug else self.REFRESH_INTERVAL)
 
 

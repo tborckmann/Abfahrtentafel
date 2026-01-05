@@ -29,6 +29,12 @@
         .time {
             font-weight: bold;
         }
+        div {
+            background: #f2f2f2;
+            padding: 10px;
+            text-align: center;
+            margin-top: 40px;
+        }
     </style>
 </head>
 <body>
@@ -55,7 +61,9 @@
     </tbody>
 </table>
 {% else %}
-<p>No upcoming departures.</p>
+<div>
+    <p>Keine Abfahrten an dieser Haltestelle.</p>
+</div>
 {% endif %}
 
 </body>
