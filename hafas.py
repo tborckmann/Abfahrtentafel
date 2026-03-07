@@ -1,7 +1,7 @@
 import requests, json
 from config import Config
 from datetime import datetime
-from shared import ConnectionError, RequestException
+from shared import ConnectionError, RequestException, TimeoutError
 
 
 class Stop:
@@ -40,7 +40,7 @@ class HafasAPI:
 
     def get_suggestions(self, search: str, amount: int = 7) -> list[Stop]:
 
-        if not search or len(search) < 2:
+        if not search or len(search) < 2 or amount <= 0:
             return []
 
         payload = {
@@ -54,10 +54,11 @@ class HafasAPI:
         }
 
         try:
-            response = requests.post(self.endpoint_url, json=payload)
+            response = requests.post(self.endpoint_url, json=payload, timeout=10)
         except Exception as e:
             raise ConnectionError(message=e.args)
-        
+        except requests.Timeout:
+            raise TimeoutError(message="Request timed out")
         if not response.ok:
             raise RequestException(status_code=response.status_code, message="Response not ok")
         
@@ -136,6 +137,8 @@ class HafasAPI:
         except Exception as e:
             print(e.__traceback__)
             raise ConnectionError(e.args)
+        except requests.Timeout:
+            raise TimeoutError("Request timed out")
         
         if not response.ok:
             raise RequestException(response.status_code)

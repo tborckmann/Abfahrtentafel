@@ -1,4 +1,5 @@
-import selenium.webdriver as webdriver
+from selenium import webdriver
+from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.chrome.options import Options
 from screen import Screen
 from config import Config
@@ -23,8 +24,9 @@ class Renderer:
 
         options = Options()
         if not debug: 
-            options.add_argument('--headless')
-        options.add_argument('--window-size=800,480')
+            options.add_argument("--headless")
+        options.add_argument("--window-size=800,480")
+        options.add_argument("--disable-gpu")
 
         self.driver = webdriver.Chrome(options=options)
     
@@ -91,7 +93,7 @@ class Renderer:
 
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     screen = Screen()
     screen.start()
 
@@ -106,5 +108,7 @@ if __name__ == '__main__':
             renderer.stop()
             screen.stop()
     except KeyboardInterrupt:
+        shutdown_event.set()
+    except WebDriverException:
         shutdown_event.set()
     

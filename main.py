@@ -21,7 +21,7 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         print("KeyboardInterrupt received")
         shutdown_event.set()
-
+        
     finally:
         screen.stop()
         renderer.stop()

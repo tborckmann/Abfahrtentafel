@@ -25,3 +25,10 @@ class ConfigError(Exception):
         self.option_value = option_value
         self.message = f"Value {self.option_value} invalid for option {self.option_name}"
         super().__init__(self.message)
+
+
+class TimeoutError(Exception):
+    
+    def __init__(self, message: str = None):
+        self.message = message
+        super().__init__(self.message)
